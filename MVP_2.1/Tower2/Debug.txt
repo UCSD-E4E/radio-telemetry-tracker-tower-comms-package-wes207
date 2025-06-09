@@ -1,0 +1,22 @@
+#Install on ubuntu machines (dependencies):
+$ sudo apt install python3-pip
+$ pip install PyQt5 pyserial numpy
+
+
+
+######
+Need usb to serial driver to connect with Heltec v3
+	Silicon labs CP210x VCP driver should work.
+
+
+###########################
+if error in data = next(get_next_data(process, serial_port))
+stopiteration
+
+Need to update path of the runme.py file.
+
+###############
+If no access to com port when running file:
+$sudo usermod -a -G dialout $user-name
+	e.g. $sudo usermod -a -G dialout will
+	Restart computer to reflect change

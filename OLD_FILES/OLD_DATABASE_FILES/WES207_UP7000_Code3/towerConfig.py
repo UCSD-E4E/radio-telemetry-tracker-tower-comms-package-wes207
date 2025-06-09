@@ -1,0 +1,11 @@
+# towerConfig.py
+# Constants for data on the Towers which will be sent using a LoRa device to the GCS
+
+# Tower Constants
+TOWER_ID                =   1                   #Transmitting Tower ID
+DB_Name                 =   "tower1_data.db"    #Name of database
+COLUMN_NAMES = ["Sample Num", "Tower ID", "Device ID", "Timestamp", "Latitude", "Longitude", "Altitude","Ack"]
+TABLE_HEADER = "{:<12} {:<12} {:<12} {:<25} {:<12} {:<12} {:<10} {:<5}"
+ROW_FORMAT = "{:<12} {:<12} {:<12} {:<25} {:<12.7f} {:<12.7f} {:<10.2f} {:<5}"
+DIVIDER_LINE = "-" * 110  # Length of the divider line
+

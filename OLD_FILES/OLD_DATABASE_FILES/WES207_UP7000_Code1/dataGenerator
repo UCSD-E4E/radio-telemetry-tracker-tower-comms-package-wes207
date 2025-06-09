@@ -1,0 +1,242 @@
+#dataGenerator.py
+#This will generate bogus data every second that we will need to send
+import time
+import datetime
+import random
+import sqlite3
+import threading
+import numpy as np
+
+import config
+
+#Constants for generating data
+NUM_DEVICES             =   20          #Number of devices deployed
+UCSD_LAT                =   32.8812     #latitude of UCSD
+UCSD_LONG               =   117.2344    #longitude of ucsd
+UCSD_ALT                =   0           #altitude of ucsd (assume sea level)
+PROB_DEVICE_SEEN        =   .05         #probability a device transmits to a tower. Arbitrary
+
+
+#create db of random latitude, longitude, etc.
+#all data will be from tower 1
+class TowerDatabase:
+    # 1) atrributes of db
+    # 2) initialize the db
+    # 3) create new data record
+    # 4) get id of all un-ack'd records
+
+
+    #attributes of database
+    #def __init__(self):
+    def __init__(self, db_name =config.DB_Name):
+        self.db_name = db_name
+        self._initialize_db() #initialize the database once started
+
+    def _initialize_db(self):
+        #Create database and tables
+        #ref 1:     https://docs.python.org/3/library/sqlite3.html
+        #ref 2:     https://sqlite.org/lang_createtable.html
+
+        con = sqlite3.connect(self.db_name)
+        cur = con.cursor()
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS records (
+                    tower_id INTEGER NOT NULL, 
+                    device_id TEXT NOT NULL,
+                    sample_num INTEGER NOT NULL,
+                    time_stamp TEXT NOT NULL,
+                    latitude REAL NOT NULL,
+                    longitude REAL NOT NULL,
+                    altitude REAL NOT NULL,
+                    ack INTEGER DEFAULT 0                    
+        )''')
+            #id INTEGER PRIMARY KEY AUTOINCREMENT # I don't think we need, but may need to add to table
+                #https://sqlite.org/autoinc.html
+                #https://stackoverflow.com/questions/7905859/is-there-auto-increment-in-sqlite
+        con.commit()
+        con.close()
+    
+    #To add a record to the database
+    def add_record(self,record):
+        con = sqlite3.connect(self.db_name)
+        cur = con.cursor()
+
+        cur.execute('''INSERT INTO records 
+                    (tower_id, device_id, sample_num, time_stamp, latitude, longitude, altitude, ack) 
+                    VALUES(?, ?, ?, ?, ?, ?, ?,?)
+                    ''', (
+                        record.tower_id,
+                        record.device_id,
+                        record.sample_num,
+                        record.time_stamp,
+                        record.latitude,
+                        record.longitude,
+                        record.altitude,
+                        int(record.ack)
+                    ))
+            #INSERT INTO people (first_name, last_name) VALUES ("John", "Smith");
+            # https://www.sqlitetutorial.net/sqlite-python/insert/
+        record_id = cur.lastrowid
+        con.commit()
+        con.close()
+        return record_id
+    
+
+    def get_unacknowledged_records(self):
+        con = sqlite3.connect(self.db_name)
+        cur = con.cursor()
+        con.row_factory = sqlite3.Row
+
+        # select all columns for matching row of ack==0, then order by timestamp
+        cur.execute('''SELECT * FROM records WHERE ack == 0
+                ORDER BY time_stamp ASC
+        ''')
+
+        rows = cur.fetchall()
+        records = []
+
+        for row in rows:
+            record = config.DataRecord(
+                tower_id=row['tower_id'],
+                device_id=row['device_id'],
+                sample_num=row['sample_num'],
+                time_stamp=row['time_stamp'],
+                latitude=row['latitude'],
+                longitude=row['longitude'],
+                altitude=row['altitude'],
+                ack=bool(row['ack'])
+            )
+            records.append(record)
+        
+        con.close()
+        return records
+
+    #mark a record as acknowledged & delete from db
+    def mark_acknowledged(self, sample_nums):
+        if not sample_nums:
+            return 0 #exit if nothing was acknowledged
+        
+        con = sqlite3.connect(self.db_name)
+        cur = con.cursor()
+
+        placeholders = ','.join('?' for _ in sample_nums) #eg (?,?,?) if sample_nums is len(3)
+        cur.execute(f'''
+        UPDATE records SET ack = 1
+        WHERE sample_num IN ({placeholders})
+        ''', sample_nums)
+
+        # Get count of updated records
+        updated_count = cur.rowcount
+        
+        # Delete acknowledged records
+        cur.execute(f'''
+        DELETE FROM records WHERE sample_num IN ({placeholders})
+        ''', sample_nums)
+        
+        deleted_count = cur.rowcount
+        
+        con.commit()
+        con.close()
+        return deleted_count
+
+    #Get the most recent sample from db
+    def get_last_sample_num(self):
+        con = sqlite3.connect(self.db_name)
+        cur = con.cursor()
+        
+        cur.execute('SELECT MAX(sample_num) FROM records')
+        result = cur.fetchone()[0]
+        
+        con.close()
+        return result if result is not None else 0
+    
+
+
+#create data and store into database
+class DataGenerator:
+    def __init__(self):
+        self.database = TowerDatabase() #call database class
+        self.sample_counter = self.database.get_last_sample_num() + 1 #entry number for this newly generated data
+        self.running = False
+        self.generator_thread = None
+
+    #begin generating data
+    def start(self):
+        if self.running:
+            print('Data generator already started')
+            return
+        
+        self.running = True
+        self.generator_thread = threading.Thread(target=self._data_generation_loop)
+        self.generator_thread.daemon = True
+        self.generator_thread.start()
+        #print("Data will now generate")
+
+    #stop generating data
+    def stop(self):
+        self.running = False
+        if self.generator_thread == True:
+            self.generator_thread.join(timeout=2) #Why is timeout=2?
+        print("Data Generator terminated.")
+
+    def _generate_data(self,device_id):
+        current_time = datetime.datetime.now().isoformat()
+        #device_id = f"DEV{random.randint(1, NUM_DEVICES):03d}"  #pick random device id. eg "DEV002"
+        #device_id = random.randint(1, NUM_DEVICES) # better to just have as an integer.
+
+        latitude = UCSD_LAT + random.uniform(-0.001, 0.001)
+        longitude = UCSD_LONG + random.uniform(-0.001, 0.001)
+        altitude = UCSD_ALT + random.uniform(0, 100)
+
+        record = config.DataRecord(
+            tower_id=config.TOWER_ID,
+            device_id=device_id,
+            sample_num=self.sample_counter,
+            time_stamp=current_time,
+            latitude=latitude,
+            longitude=longitude,
+            altitude=altitude
+        )
+
+        self.sample_counter += 1
+        return record
+    
+    
+    def _data_generation_loop(self):
+        '''Loop through and generate data for all devices that are within range.'''
+        # Print table header first
+        print("\n{:<5} {:<10} {:<10} {:<25} {:<12} {:<12} {:<10}".format(
+            "ID", "Tower", "Device", "Timestamp", "Latitude", "Longitude", "Altitude"))
+        print("-" * 90)  # Divider line
+        
+        while self.running:
+            dev_active = np.random.binomial(n=1, p=PROB_DEVICE_SEEN, size=NUM_DEVICES)
+            for i in range(NUM_DEVICES):
+                if dev_active[i] == 1: #dont send data if none was seen
+                   record = self._generate_data(i)
+                   self.database.add_record(record)
+            
+                   timestamp_short = record.time_stamp.split("T")[0] + " " + record.time_stamp.split("T")[1][:8] #format
+                   print("{:<5} {:<10} {:<10} {:<25} {:<12.6f} {:<12.6f} {:<10.2f}".format(
+                       record.sample_num, record.tower_id, record.device_id, timestamp_short, 
+                       record.latitude, record.longitude,record.altitude
+                   ))
+            time.sleep(config.COLLECTION_INTERVAL)
+
+
+
+if __name__ == "__main__":
+    #print("Data Generator running. Press Ctrl+C to stop.")
+    generator = DataGenerator()
+    print("\nAbout to start data Generator.\nPress Ctrl+C to stop.")
+    generator.start()
+    #print("Data Generator running. Press Ctrl+C to stop.")
+    
+    try:
+        # Run for a minute to test
+        #print("Data Generator running. Press Ctrl+C to stop.")
+        time.sleep(60)  
+    except KeyboardInterrupt:
+        print("\nStopping data generator...")
+    finally:
+        generator.stop()

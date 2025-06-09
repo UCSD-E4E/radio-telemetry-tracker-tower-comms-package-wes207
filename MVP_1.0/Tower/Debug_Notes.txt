@@ -1,0 +1,19 @@
+#Install on ubuntu machines (dependencies):
+$ sudo apt install python3-pip
+$ Will pip install PyQt5 pyserial numpy
+
+
+
+
+
+###########################
+if error in terminal:  data = next(get_next_data(process, serial_port))
+	stopiteration
+then:
+	You need to update path of the runme.py file. Syntax error or the runme.py file is in wrong directory.
+
+###############
+If no access to com port when running file:
+$sudo usermod -a -G dialout $user-name
+	e.g. $sudo usermod -a -G dialout will
+	Restart computer to reflect change
