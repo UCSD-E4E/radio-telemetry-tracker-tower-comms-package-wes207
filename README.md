@@ -178,7 +178,7 @@ You can find our high level overview of the project here: https://www.youtube.co
 The following changes are recommended and possible (in no particular order of importance):
 1. Channel Hopping. Channel hopping would be extremely nice so you can send more data.
 
-    **IMPORTANT DISCLAIMER**: We may not be 100% FCC compliant right now. It is hard to find out a lot of information on what is required for LoRaWAN in terms of channel hopping and dwell times. We know 400ms is the maximum length of a message, but you may need to wait 20 seconds to send another message on the same channel, so adding a channel hopping scheme would be extremely helpful.
+    **IMPORTANT DISCLAIMER**: We may not be 100% FCC compliant right now with single channel at 125kHz bandwidth. It is hard to find out a lot of information on what is required for LoRaWAN in terms of channel hopping and dwell times. We know 400ms is the maximum length of a message, but you may need to wait 20 seconds to send another message on the same channel, so adding a channel hopping scheme would be extremely helpful.
     See the Updates to see our LoRa research and sources. Class 5 Update has the most up to date research posted.
     Also see the section below for a discussion with Prof. Pannuto about channel hopping.
 
