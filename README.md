@@ -96,7 +96,7 @@ You will also need to update thread1 in "runme.py" to target your database gener
 
 You should delete current database (towerX_data.db) and the sample number accumulator (sample_num_config.json) files when setting up the tower for deployment. The program will auto create these files and set the next sample to '1' if it does not exist.
 
-#### Update Channel and Spreading Factor
+#### Update Channel, Spreading Factor, and Bandwidth
 
 To Update Channel (Center Frequency):
 1) GCS: update the variables CHANNEL_DOWNLINK and CHANNEL_UPLINK in the file gcs.cpp
@@ -108,6 +108,8 @@ Use the function tune_to_channel(channel) to update the actual frequency in both
 To update the Spreading Factor (SF):
 Same as the channel number above but update JN_LORA_SPREAD .
 
+To update the Bandwidth (BW):
+Same as channel number and Spreading Factor with the variable JN_LORA_BW. **Note that the carrier frequencies you are allowed to use for 500kHz bandwidth are different than that of 125kHz.** The system is currently configured for 125kHz bandwidth transmissions. See Class 5 Update presentation Appendix for more information.
 
 Future Improvements:
 You can use the variables OTA.dl and OTA.ul in both files to store the variables locally. I recommend keeping this data local to the Heltec devices if you do try to add channel hopping. Either flashing a json file local to the device that stores the channel between device reboots (similar to how sample_num_config.json works) or using the OTA object would work. Look at LoRaAtributes.py (in tower) for some background of what you could do.
@@ -174,11 +176,16 @@ You can find our high level overview of the project here: https://www.youtube.co
 ## Future Changes
 
 The following changes are recommended and possible (in no particular order of importance):
-1. Channel Hopping. Channel hopping would be extremely nice so you can send more data. We might NOT
+1. Channel Hopping. Channel hopping would be extremely nice so you can send more data.
+
     **IMPORTANT DISCLAIMER**: We may not be 100% FCC compliant right now. It is hard to find out a lot of information on what is required for LoRaWAN in terms of channel hopping and dwell times. We know 400ms is the maximum length of a message, but you may need to wait 20 seconds to send another message on the same channel, so adding a channel hopping scheme would be extremely helpful.
     See the Updates to see our LoRa research and sources. Class 5 Update has the most up to date research posted.
     Also see the section below for a discussion with Prof. Pannuto about channel hopping.
+
+    Switching to a 500kHz bandwidth should allow you to stay FCC compliant (with 20dbm power) since it is no longer in the narrowband signal category. You could use any of the 8 500kHz uplink or 8 500kHz downlink channels for this. Note that range will be a bit worse for 500kHz bandwidth (compared to the 125kHz we tested with). These 500kHz Uplink channels are 903.0 to 914.0MHz (separated by 1.6MHz [1,600kHz]) and the 500kHz Downlink channels are 923.3MHz to 927.5MHz(separated by 0.6MHz [600kHz]).
+
 2. LoRa Attributes. We added LoRaAttributes.py which has all possible LoRa attrubutes (except Power level). Implementing this (or a similar file) would be a great addition.
+
 3. We kept the packet structure basic so as you can easily update it in the future and in case it does not work properly. This allows you to add more parameters to be sent from the Tower to GCS if you desire (e.g. temperature). To optimize, you can adjust the MAC layer to be only the number of bits required per data type sent and send data in bits. This would increase throughput since only meaningful data would be sent. For example, you likely only need 8 digits (5 or fewer digits after decimal) for lat/long since 1.1m precision probably beats the accuracy of the system as a whole. This would only require ~25/26 bits of info, which is less than the 32 bits in a float. This can be similarly optimized for altitude and other data types sent.
 4. Logic so that a duplicate records cannot be entered into the csv on GCS (GCS_data.csv).
 5. Currently an issue where lock is released when already released in pyTower.py, but this is not an issue that really impacts performance, just clogs the terminal output a bit.
